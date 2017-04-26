@@ -1,7 +1,6 @@
 #include "rapid_manipulation/joint_state_reader.h"
 
 #include <map>
-#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -10,24 +9,31 @@
 
 namespace rapid {
 namespace manipulation {
-JointStateReader::JointStateReader() : positions_() {}
+JointStateReader::JointStateReader()
+    : nh_(), topic_("joint_states"), positions_() {}
+JointStateReader::JointStateReader(const std::string& joint_states_topic)
+    : nh_(), topic_(joint_states_topic), positions_() {}
 
-double JointStateReader::get_position(const std::string& name) {
+void JointStateReader::Start() {
+  sub_ = nh_.subscribe(topic_, 5, &JointStateReader::callback, this);
+}
+
+double JointStateReader::get_position(const std::string& name) const {
   if (positions_.find(name) == positions_.end()) {
-    throw std::out_of_range("No position value for name: " + name);
+    return kNoJointValue;
   }
-  return positions_[name];
+  return positions_.at(name);
 }
 
 void JointStateReader::get_positions(const std::vector<std::string>& names,
-                                     std::vector<double>* positions) {
+                                     std::vector<double>* positions) const {
   positions->clear();
   for (size_t i = 0; i < names.size(); ++i) {
     positions->push_back(get_position(names[i]));
   }
 }
 
-void JointStateReader::Callback(const sensor_msgs::JointState& js) {
+void JointStateReader::callback(const sensor_msgs::JointState& js) {
   if (js.name.size() < js.position.size()) {
     ROS_WARN("JointState msg had different sized name and position field.");
     return;
